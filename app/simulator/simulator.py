@@ -1,6 +1,7 @@
 import random
 import time
 import requests
+import os
 
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 lap = 1
