@@ -1,0 +1,33 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: apex-redis
+    ports:
+      - "6379:6379"
+
+  backend:
+    build: ./app/backend
+    container_name: apex-backend
+    environment:
+      INSTANCE_ID: "docker-backend"
+      REDIS_HOST: redis
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+
+  simulator:
+    build: ./app/simulator
+    container_name: apex-simulator
+    environment:
+      BACKEND_URL: "http://backend:8000"
+    depends_on:
+      - backend
+
+  frontend:
+    build: ./app/frontend
+    container_name: apex-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
