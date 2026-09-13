@@ -6,8 +6,11 @@ function App() {
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+    const WS_URL =
+      import.meta.env.VITE_WS_URL ||
+      "ws://localhost:8000/ws";
+
+    const ws = new WebSocket(WS_URL);
 
     ws.onopen = () => setConnected(true);
 

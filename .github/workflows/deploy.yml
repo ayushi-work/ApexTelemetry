@@ -1,0 +1,55 @@
+name: Deploy ApexTelemetry
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Deploy to EC2-A
+        run: |
+          aws ssm send-command \
+            --instance-ids "${{ secrets.EC2_A_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=[
+              "cd /opt/apex-telemetry",
+              "git pull origin main",
+              "cd app/backend",
+              "docker build -t apex-telemetry-backend .",
+              "docker rm -f apex-backend || true",
+              "docker run -d --name apex-backend --restart unless-stopped -p 8000:8000 -e INSTANCE_ID=EC2-A -e REDIS_HOST=${{ secrets.REDIS_HOST }} apex-telemetry-backend"
+            ]'
+
+      - name: Wait for EC2-A
+        run: sleep 30
+
+      - name: Deploy to EC2-B
+        run: |
+          aws ssm send-command \
+            --instance-ids "${{ secrets.EC2_B_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=[
+              "cd /opt/apex-telemetry",
+              "git pull origin main",
+              "cd app/backend",
+              "docker build -t apex-telemetry-backend .",
+              "docker rm -f apex-backend || true",
+              "docker run -d --name apex-backend --restart unless-stopped -p 8000:8000 -e INSTANCE_ID=EC2-B -e REDIS_HOST=${{ secrets.REDIS_HOST }} apex-telemetry-backend"
+            ]'
+
+      - name: Deployment complete
+        run: echo "ApexTelemetry deployed successfully"
