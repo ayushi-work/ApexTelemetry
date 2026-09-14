@@ -235,12 +235,40 @@ resource "aws_elasticache_cluster" "redis" {
 # -------------------------
 # EC2-A
 # -------------------------
+resource "aws_iam_role" "ec2_ssm" {
+  name = "${var.project_name}-ec2-ssm-role"
 
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [
+      {
+        Effect = "Allow"
+
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ec2_ssm" {
+  role       = aws_iam_role.ec2_ssm.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_instance_profile" "ec2_ssm" {
+  name = "${var.project_name}-ec2-ssm-profile"
+  role = aws_iam_role.ec2_ssm.name
+}
 resource "aws_instance" "a" {
-  ami           = data.aws_ami.ubuntu.id
-  instance_type = "t4g.micro"
-
-  subnet_id = aws_subnet.public_a.id
+  ami                  = data.aws_ami.ubuntu.id
+  instance_type        = "t4g.micro"
+  iam_instance_profile = aws_iam_instance_profile.ec2_ssm.name
+  subnet_id            = aws_subnet.public_a.id
 
   vpc_security_group_ids = [
     aws_security_group.ec2.id
@@ -252,10 +280,14 @@ resource "aws_instance" "a" {
     set -e
 
     apt-get update -y
-    apt-get install -y docker.io git
+apt-get install -y docker.io git
 
-    systemctl enable docker
-    systemctl start docker
+snap install amazon-ssm-agent --classic
+systemctl enable snap.amazon-ssm-agent.amazon-ssm-agent.service
+systemctl start snap.amazon-ssm-agent.amazon-ssm-agent.service
+
+systemctl enable docker
+systemctl start docker
 
     cd /opt
 
@@ -290,10 +322,10 @@ resource "aws_instance" "a" {
 # -------------------------
 
 resource "aws_instance" "b" {
-  ami           = data.aws_ami.ubuntu.id
-  instance_type = "t4g.micro"
-
-  subnet_id = aws_subnet.public_b.id
+  ami                  = data.aws_ami.ubuntu.id
+  instance_type        = "t4g.micro"
+  iam_instance_profile = aws_iam_instance_profile.ec2_ssm.name
+  subnet_id            = aws_subnet.public_b.id
 
   vpc_security_group_ids = [
     aws_security_group.ec2.id
@@ -306,6 +338,9 @@ resource "aws_instance" "b" {
 
     apt-get update -y
     apt-get install -y docker.io git
+    snap install amazon-ssm-agent --classic
+    systemctl enable snap.amazon-ssm-agent.amazon-ssm-agent.service
+    systemctl start snap.amazon-ssm-agent.amazon-ssm-agent.service
 
     systemctl enable docker
     systemctl start docker
